@@ -30,7 +30,7 @@ for index, element in df.iterrows():
 
 
 # Crec que és innecessari tot això
-class NaiveBayes():
+class NaiveBayes:
     def __init__(self, df, colDades="tweetText", colLabel="sentimentLabel"):
         self.nTweets = df.shape[0]
         # self.vocabulari = self.calcula_vocab(df[colDades].tolist())
@@ -56,6 +56,20 @@ class NaiveBayes():
             self.diccionari[element[colLabel]].append(element[colDades].split())
 
 
+def accuracy(nTP, nTN, nFP, nFN):
+    return float(nTP + nTN) / (nTP + nTN + nFP + nFN)
+
+
+def recall(nTP, nFN):
+    if (nTP + nFN) == 0:
+        return 0
+    return float(nTP) / (nTP + nFN)
+
+
+def precision(nTP, nFP):
+    return float(nTP) / (nTP + nFP)
+
+
 def readData(file, rows):
     df = pd.read_csv(file, sep=";", nrows=rows)
     df = df.drop(['tweetId', 'tweetDate'], axis=1)
@@ -63,8 +77,11 @@ def readData(file, rows):
 
 
 def splitData(df):
-    train = None
-    val = None
+    # Holdout val 30 train 70
+    ntrain = (df.shape[0]*70)//100
+    # nval = df.shape[0]-ntrain
+    train = df.loc[:ntrain]
+    val = df.loc[ntrain+1:]
     return train, val
 
 
@@ -94,9 +111,10 @@ def getTagDictionaries(train):
 
 def main():
     file = 'data/FinalStemmedSentimentAnalysisDataset.csv'
-    rows = 100000
+    rows = 100
     df = readData(file, rows)
-    pDict, nDict = getTagDictionaries(df)
+    train, val = splitData(df)
+    pDict, nDict = getTagDictionaries(train)
     print(pDict)
     print(nDict)
 

@@ -112,9 +112,10 @@ def getTagDictionaries(train):
 def taulaExtraccio(pDict, nDict):
     """
     Calcula la taula de probabilitats de pertanyer a una classe o un altre,
-    primer valor es yes(positiu), segon es no(negatiu)
+     es un diccionari on la clau es la paraula amb una tupla en que el primer
+      valor es yes(positiu), i el segon es no(negatiu).
     """
-    taula = []
+    taula = {}
 
     for paraula, valor in pDict.items():
         if paraula in nDict:
@@ -123,13 +124,13 @@ def taulaExtraccio(pDict, nDict):
             total = numPositiu + numNegatiu
             pPositiu = numPositiu / total
             pNegatiu = 1 - pPositiu
-            taula.append([paraula, (pPositiu, pNegatiu)])
+            taula[paraula] = (pPositiu, pNegatiu)
         else:
-            taula.append([paraula, (1, 0)])
+            taula[paraula] = (1, 0)
 
     for paraula in nDict.keys():
         if paraula not in pDict:
-            taula.append([paraula, (0, 1)])
+            taula[paraula] = (0, 1)
 
     return taula
 
@@ -140,9 +141,9 @@ def printTaulaDeManeraMesBonica(taula):
     print("¦------------------------------------------------------------¦")
     print("¦                           ¦    Positiu     ¦    Negatiu    ¦")
     print("¦                           ¦--------------------------------¦")
-    for casella in taula:
-        print("¦", casella[0].ljust(25), "¦", str(round(casella[1][0], 4)).ljust(14),
-              "¦", str(round(casella[1][1], 4)).ljust(13), "¦")
+    for paraula, tupla in taula.items():
+        print("¦", paraula.ljust(25), "¦", str(round(tupla[0], 4)).ljust(14),
+              "¦", str(round(tupla[1], 4)).ljust(13), "¦")
     print("¦------------------------------------------------------------¦")
 
 
@@ -151,14 +152,18 @@ def main():
     rows = 100
     df = readData(file, rows)
     train, val = splitData(df)
+
+    # Fase de train
     pDict, nDict = getTagDictionaries(train)
     print("\nDiccionari paraules positiveTag")
     print(pDict)
     print("\nDiccionari paraules negativeTag")
     print(nDict)
     print("\n")
+
     taula = taulaExtraccio(pDict, nDict)
     printTaulaDeManeraMesBonica(taula)
+
 
 
 if __name__ == '__main__':

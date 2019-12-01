@@ -115,7 +115,9 @@ def main():
     df = readData(file, rows)
     train, val = splitData(df)
     pDict, nDict = getTagDictionaries(train)
+    print("\nDiccionari paraules positiveTag")
     print(pDict)
+    print("\nDiccionari paraules negativeTag")
     print(nDict)
 
 

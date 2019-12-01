@@ -114,23 +114,32 @@ def taulaExtraccio(pDict, nDict):
     Calcula la taula de probabilitats de pertanyer a una classe o un altre,
      es un diccionari on la clau es la paraula amb una tupla en que el primer
       valor es yes(positiu), i el segon es no(negatiu).
+    :return: Diccionari
     """
     taula = {}
-
+    totalPositius = len(pDict)
+    totalNegatius = len(nDict)
     for paraula, valor in pDict.items():
+        numPositiu = valor
         if paraula in nDict:
-            numPositiu = valor
             numNegatiu = nDict[paraula]
             total = numPositiu + numNegatiu
+            """
+            crec que aixo esta malament perque s'ha de fer que les columnes sumin 1 no les files
             pPositiu = numPositiu / total
             pNegatiu = 1 - pPositiu
+            """
+            pPositiu = numPositiu / totalPositius
+            pNegatiu = numNegatiu / totalNegatius
             taula[paraula] = (pPositiu, pNegatiu)
         else:
-            taula[paraula] = (1, 0)
+            taula[paraula] = (numPositiu / totalPositius, 0)
 
-    for paraula in nDict.keys():
+    for paraula, valor in nDict.items():
         if paraula not in pDict:
-            taula[paraula] = (0, 1)
+            numNegatiu = valor
+            pNegatiu = numNegatiu / totalNegatius
+            taula[paraula] = (0, pNegatiu)
 
     return taula
 
@@ -145,6 +154,37 @@ def printTaulaDeManeraMesBonica(taula):
         print("¦", paraula.ljust(25), "¦", str(round(tupla[0], 4)).ljust(14),
               "¦", str(round(tupla[1], 4)).ljust(13), "¦")
     print("¦------------------------------------------------------------¦")
+
+
+#Per cuan cap paraula no estigui en el conjunt d'entrenament
+default = False
+def predict(taulaEx, valorationSet):
+    """
+    Troba de cada tweet si es positiu o negatiu
+    :return: Llista que diu si cada un dels tweets es positiu = True o negatiu = False
+    """
+    prediccions = []
+    for tweet in valorationSet['tweetText']:
+        pPositive = 0
+        pNegative = 0
+        for word in str(tweet).split():
+            if word in taulaEx:
+                #Faig aixo per controlar si no tenim cap paraula del tweet al diccionari
+                if pPositive == 0:
+                    pPositive = 1
+                if pNegative == 0:
+                    pNegative = 1
+                pPositive *= taulaEx[word][0]
+                pNegative *= taulaEx[word][1]
+        if pPositive == 0 and pNegative == 0:
+            prediccions.append(default)
+        else:
+            if pPositive > pNegative:
+                prediccions.append(True)
+            else:
+                prediccions.append(False)
+
+    return prediccions
 
 
 def main():
@@ -164,6 +204,20 @@ def main():
     taula = taulaExtraccio(pDict, nDict)
     printTaulaDeManeraMesBonica(taula)
 
+    # Prediccions
+    prediccions = predict(taula, val)
+    i = 0
+    for tweet in val['tweetText']:
+        print("Tweet:", tweet, "|", "Predicció:", prediccions[i], "\n")
+        i += 1
+
+
+    # TODO: randomitzar el dataset cuan acabem de implementar tot aixo deixemlo aixi per debug purposes.
+
+    # TODO: podriem eliminar les paraules mes llargues de certa longitud per treure coses com links
+    #  ex: httptumblrcomxwp1yxhi6.
+
+    #TODO: afegir un spell checker com pyspellchecker.
 
 
 if __name__ == '__main__':

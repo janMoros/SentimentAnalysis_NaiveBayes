@@ -78,10 +78,10 @@ def readData(file, rows):
 
 def splitData(df):
     # Holdout val 30 train 70
-    ntrain = (df.shape[0]*70)//100
+    ntrain = (df.shape[0] * 70) // 100
     # nval = df.shape[0]-ntrain
     train = df.loc[:ntrain]
-    val = df.loc[ntrain+1:]
+    val = df.loc[ntrain + 1:]
     return train, val
 
 
@@ -109,6 +109,43 @@ def getTagDictionaries(train):
     return pDict, nDict
 
 
+def taulaExtraccio(pDict, nDict):
+    """
+    Calcula la taula de probabilitats de pertanyer a una classe o un altre,
+    primer valor es yes(positiu), segon es no(negatiu)
+    """
+    taula = []
+
+    for paraula, valor in pDict.items():
+        if paraula in nDict:
+            numPositiu = valor
+            numNegatiu = nDict[paraula]
+            total = numPositiu + numNegatiu
+            pPositiu = numPositiu / total
+            pNegatiu = 1 - pPositiu
+            taula.append([paraula, (pPositiu, pNegatiu)])
+        else:
+            taula.append([paraula, (1, 0)])
+
+    for paraula in nDict.keys():
+        if paraula not in pDict:
+            taula.append([paraula, (0, 1)])
+
+    return taula
+
+
+def printTaulaDeManeraMesBonica(taula):
+    print("¦------------------------------------------------------------¦")
+    print("¦          Paraula          ¦          Probabilitats         ¦")
+    print("¦------------------------------------------------------------¦")
+    print("¦                           ¦    Positiu     ¦    Negatiu    ¦")
+    print("¦                           ¦--------------------------------¦")
+    for casella in taula:
+        print("¦", casella[0].ljust(25), "¦", str(round(casella[1][0], 4)).ljust(14),
+              "¦", str(round(casella[1][1], 4)).ljust(13), "¦")
+    print("¦------------------------------------------------------------¦")
+
+
 def main():
     file = 'data/FinalStemmedSentimentAnalysisDataset.csv'
     rows = 100
@@ -119,6 +156,9 @@ def main():
     print(pDict)
     print("\nDiccionari paraules negativeTag")
     print(nDict)
+    print("\n")
+    taula = taulaExtraccio(pDict, nDict)
+    printTaulaDeManeraMesBonica(taula)
 
 
 if __name__ == '__main__':

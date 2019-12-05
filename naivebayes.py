@@ -152,7 +152,7 @@ def printTaulaDeManeraMesBonica(taula):
     print("¦                           ¦--------------------------------¦")
     for paraula, tupla in taula.items():
         print("¦", paraula.ljust(25), "¦", str(round(tupla[0], 4)).ljust(14),
-              "¦", str(round(tupla[1], 4)).ljust(13), "¦")
+              "¦", str(round(tupla[1], 10)).ljust(13), "¦")
     print("¦------------------------------------------------------------¦")
 
 
@@ -189,7 +189,7 @@ def predict(taulaEx, valorationSet):
 
 def main():
     file = 'data/FinalStemmedSentimentAnalysisDataset.csv'
-    rows = 100
+    rows = 1000000
     df = readData(file, rows)
     train, val = splitData(df)
 
@@ -217,7 +217,7 @@ def main():
     # TODO: podriem eliminar les paraules mes llargues de certa longitud per treure coses com links
     #  ex: httptumblrcomxwp1yxhi6.
 
-    #TODO: afegir un spell checker com pyspellchecker.
+    # TODO: afegir un spell checker com pyspellchecker.
 
 
 if __name__ == '__main__':

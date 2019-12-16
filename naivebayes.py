@@ -187,9 +187,63 @@ def predict(taulaEx, valorationSet):
     return prediccions
 
 
+def randomizeDataset(file):
+    import random
+    fid = open(file, "r")
+    li = fid.readlines()
+    fid.close()
+    print(li)
+
+    random.shuffle(li)
+    print(li)
+
+    fid = open("shuffled_example.txt", "w")
+    fid.writelines(li)
+    fid.close()
+
+
+def validation(predictions, val):
+    """
+       Calcula les variables per a les metriques
+       :return: True positive, true negative, false positive, false negative
+    """
+    i = 0
+    """
+    for tweet in val['tweetText']:
+        print("Tweet:", tweet, "|", "Predicció:", prediccions[i], "\n")
+        i += 1
+    """
+    """
+    # Això va tot lent comparat amb lu de dalt el iterrows es una basura
+    for index, row in val.iterrows():
+        print("Tweet:", row['tweetText'], "|", "Predicció:", predictions[i], "|", "Valor actual: ",
+              row['sentimentLabel'], "\n")
+        i += 1
+    """
+    TP = 0
+    TN = 0
+    FP = 0
+    FN = 0
+    for sentiment in val['sentimentLabel']:
+        if predictions[i] == sentiment:
+            if sentiment == 1:
+                TP += 1
+            else:
+                TN += 1
+        else:
+            if sentiment == 0:
+                FP += 1
+            else:
+                FN += 1
+        i += 1
+
+    return TP, TN, FP, FN
+
 def main():
-    file = 'data/FinalStemmedSentimentAnalysisDataset.csv'
-    rows = 1000000
+    file = 'data/shuffled_example.csv'
+    # randomizeDataset(file) Només l'utiltzem una vegada per poder fer un analisi mes estable he vist que el fitxer
+    # estava molt ordenat
+    rows = 1578628
     df = readData(file, rows)
     train, val = splitData(df)
 
@@ -206,11 +260,15 @@ def main():
 
     # Prediccions
     prediccions = predict(taula, val)
-    i = 0
-    for tweet in val['tweetText']:
-        print("Tweet:", tweet, "|", "Predicció:", prediccions[i], "\n")
-        i += 1
 
+    tp, tn, fp, fn = validation(prediccions, val)
+
+    acc = accuracy(tp, tn, fp, fn)
+    print("Accuracy: ", acc * 100, "%")
+    rec = recall(tp, fn)
+    print("Recall: ", rec * 100, "%")
+    pre = precision(tp, fp)
+    print("Precision: ", pre * 100, "%")
 
     # TODO: randomitzar el dataset cuan acabem de implementar tot aixo deixemlo aixi per debug purposes.
 

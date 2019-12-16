@@ -159,7 +159,7 @@ def printTaulaDeManeraMesBonica(taula):
 
 #Per cuan cap paraula no estigui en el conjunt d'entrenament
 default = False
-def predict(taulaEx, valorationSet, priorPositive, priorNegative):
+def predict(taulaEx, valorationSet, priorPositive, priorNegative, totalPositius, totalNegatius, smoothing = 1):
     """
     Troba de cada tweet si es positiu o negatiu
     :return: Llista que diu si cada un dels tweets es positiu = True o negatiu = False
@@ -175,6 +175,9 @@ def predict(taulaEx, valorationSet, priorPositive, priorNegative):
                 noCalculable = False
                 pPositive *= taulaEx[word][0]
                 pNegative *= taulaEx[word][1]
+            else:
+                pPositive *= (smoothing / totalPositius + smoothing)
+                pNegative *= (smoothing / totalNegatius + smoothing)
         if noCalculable:
             prediccions.append(3)
         else:
@@ -265,7 +268,7 @@ def main():
     priorNegatives = 1 - priorPositive
 
     # Prediccions
-    prediccions = predict(taula, val, priorPositive, priorNegatives)
+    prediccions = predict(taula, val, priorPositive, priorNegatives, totalPositius, totalNegatius)
 
     tp, tn, fp, fn = validation(prediccions, val)
 

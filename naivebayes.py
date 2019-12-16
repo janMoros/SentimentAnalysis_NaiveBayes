@@ -76,9 +76,9 @@ def readData(file, rows):
     return df
 
 
-def splitData(df):
+def splitData(df, trainPercentage = 70):
     # Holdout val 30 train 70
-    ntrain = (df.shape[0] * 70) // 100
+    ntrain = (df.shape[0] * trainPercentage) // 100
     # nval = df.shape[0]-ntrain
     train = df.loc[:ntrain]
     val = df.loc[ntrain + 1:]
@@ -109,7 +109,7 @@ def getTagDictionaries(train):
     return pDict, nDict
 
 
-def taulaExtraccio(pDict, nDict):
+def taulaExtraccio(pDict, nDict, smoothing=1):
     """
     Calcula la taula de probabilitats de pertanyer a una classe o un altre,
      es un diccionari on la clau es la paraula amb una tupla en que el primer
@@ -129,19 +129,20 @@ def taulaExtraccio(pDict, nDict):
             pPositiu = numPositiu / total
             pNegatiu = 1 - pPositiu
             """
-            pPositiu = numPositiu / totalPositius
-            pNegatiu = numNegatiu / totalNegatius
+            pPositiu = (numPositiu + smoothing) / (totalPositius + smoothing)
+            pNegatiu = (numNegatiu + smoothing) / (totalNegatius + smoothing)
             taula[paraula] = (pPositiu, pNegatiu)
         else:
-            taula[paraula] = (numPositiu / totalPositius, 0)
+            taula[paraula] = ((numPositiu + smoothing) / (totalPositius + smoothing),
+                              0 + smoothing / (totalNegatius + smoothing))
 
     for paraula, valor in nDict.items():
         if paraula not in pDict:
             numNegatiu = valor
-            pNegatiu = numNegatiu / totalNegatius
-            taula[paraula] = (0, pNegatiu)
+            pNegatiu = (numNegatiu + smoothing) / (totalNegatius + smoothing)
+            taula[paraula] = ((0 + smoothing) / (totalPositius + smoothing), pNegatiu)
 
-    return taula
+    return taula, totalPositius, totalNegatius
 
 
 def printTaulaDeManeraMesBonica(taula):
@@ -151,33 +152,31 @@ def printTaulaDeManeraMesBonica(taula):
     print("¦                           ¦    Positiu     ¦    Negatiu    ¦")
     print("¦                           ¦--------------------------------¦")
     for paraula, tupla in taula.items():
-        print("¦", paraula.ljust(25), "¦", str(round(tupla[0], 4)).ljust(14),
+        print("¦", paraula.ljust(25), "¦", str(round(tupla[0], 10)).ljust(14),
               "¦", str(round(tupla[1], 10)).ljust(13), "¦")
     print("¦------------------------------------------------------------¦")
 
 
 #Per cuan cap paraula no estigui en el conjunt d'entrenament
 default = False
-def predict(taulaEx, valorationSet):
+def predict(taulaEx, valorationSet, priorPositive, priorNegative):
     """
     Troba de cada tweet si es positiu o negatiu
     :return: Llista que diu si cada un dels tweets es positiu = True o negatiu = False
     """
     prediccions = []
     for tweet in valorationSet['tweetText']:
-        pPositive = 0
-        pNegative = 0
+        pPositive = priorPositive
+        pNegative = priorNegative
+        noCalculable = True
         for word in str(tweet).split():
             if word in taulaEx:
                 #Faig aixo per controlar si no tenim cap paraula del tweet al diccionari
-                if pPositive == 0:
-                    pPositive = 1
-                if pNegative == 0:
-                    pNegative = 1
+                noCalculable = False
                 pPositive *= taulaEx[word][0]
                 pNegative *= taulaEx[word][1]
-        if pPositive == 0 and pNegative == 0:
-            prediccions.append(default)
+        if noCalculable:
+            prediccions.append(3)
         else:
             if pPositive > pNegative:
                 prediccions.append(True)
@@ -225,7 +224,9 @@ def validation(predictions, val):
     FP = 0
     FN = 0
     for sentiment in val['sentimentLabel']:
-        if predictions[i] == sentiment:
+        if predictions[i] == 3:
+            pass
+        elif predictions[i] == sentiment:
             if sentiment == 1:
                 TP += 1
             else:
@@ -238,6 +239,8 @@ def validation(predictions, val):
         i += 1
 
     return TP, TN, FP, FN
+
+
 
 def main():
     file = 'data/shuffled_example.csv'
@@ -255,11 +258,14 @@ def main():
     print(nDict)
     print("\n")
 
-    taula = taulaExtraccio(pDict, nDict)
+    taula, totalPositius, totalNegatius = taulaExtraccio(pDict, nDict)
     printTaulaDeManeraMesBonica(taula)
 
+    priorPositive = totalPositius / (totalPositius + totalNegatius)
+    priorNegatives = 1 - priorPositive
+
     # Prediccions
-    prediccions = predict(taula, val)
+    prediccions = predict(taula, val, priorPositive, priorNegatives)
 
     tp, tn, fp, fn = validation(prediccions, val)
 
@@ -269,6 +275,9 @@ def main():
     print("Recall: ", rec * 100, "%")
     pre = precision(tp, fp)
     print("Precision: ", pre * 100, "%")
+
+
+    print(priorPositive, priorNegatives)
 
     # TODO: randomitzar el dataset cuan acabem de implementar tot aixo deixemlo aixi per debug purposes.
 

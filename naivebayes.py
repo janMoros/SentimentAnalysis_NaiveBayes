@@ -3,6 +3,7 @@ import numpy as np
 import csv
 from nltk.stem import PorterStemmer
 from nltk.tokenize import word_tokenize
+from collections import Counter
 
 # https://medium.com/datadriveninvestor/implementing-naive-bayes-for-sentiment-analysis-in-python-951fa8dcd928
 
@@ -92,24 +93,31 @@ def getTagDictionaries(train):
     pDict = {}
     nDict = {}
 
+    totalWords = 0
+
+    #No poseu el .keys() al fer if word in pDict perque va tot lent
     for tweet in pTrain['tweetText']:
         for word in str(tweet).split():
-            if word in pDict.keys():
+            if word in pDict:
                 pDict[word] += 1
             else:
                 pDict[word] = 1
+                totalWords += 1
 
     for tweet in nTrain['tweetText']:
         for word in str(tweet).split():
-            if word in nDict.keys():
+            if word not in pDict:
+                totalWords += 1
+            if word in nDict:
                 nDict[word] += 1
             else:
                 nDict[word] = 1
 
-    return pDict, nDict
+
+    return pDict, nDict, totalWords
 
 
-def taulaExtraccio(pDict, nDict, smoothing=1):
+def taulaExtraccio(pDict, nDict, nUniqueWords, smoothing=1):
     """
     Calcula la taula de probabilitats de pertanyer a una classe o un altre,
      es un diccionari on la clau es la paraula amb una tupla en que el primer
@@ -129,18 +137,17 @@ def taulaExtraccio(pDict, nDict, smoothing=1):
             pPositiu = numPositiu / total
             pNegatiu = 1 - pPositiu
             """
-            pPositiu = (numPositiu + smoothing) / (totalPositius + smoothing)
-            pNegatiu = (numNegatiu + smoothing) / (totalNegatius + smoothing)
+            pPositiu = (numPositiu + smoothing) / nUniqueWords
+            pNegatiu = (numNegatiu + smoothing) / nUniqueWords
             taula[paraula] = (pPositiu, pNegatiu)
         else:
-            taula[paraula] = ((numPositiu + smoothing) / (totalPositius + smoothing),
-                              0 + smoothing / (totalNegatius + smoothing))
+            taula[paraula] = ((numPositiu + smoothing) / nUniqueWords, 0 + smoothing / nUniqueWords)
 
     for paraula, valor in nDict.items():
         if paraula not in pDict:
             numNegatiu = valor
-            pNegatiu = (numNegatiu + smoothing) / (totalNegatius + smoothing)
-            taula[paraula] = ((0 + smoothing) / (totalPositius + smoothing), pNegatiu)
+            pNegatiu = (numNegatiu + smoothing) / nUniqueWords
+            taula[paraula] = ((0 + smoothing) / nUniqueWords, pNegatiu)
 
     return taula, totalPositius, totalNegatius
 
@@ -159,7 +166,7 @@ def printTaulaDeManeraMesBonica(taula):
 
 #Per cuan cap paraula no estigui en el conjunt d'entrenament
 default = False
-def predict(taulaEx, valorationSet, priorPositive, priorNegative, totalPositius, totalNegatius, smoothing = 1):
+def predict(taulaEx, valorationSet, priorPositive, priorNegative, totalPositius, totalNegatius, nUniqueWords, smoothing = 1):
     """
     Troba de cada tweet si es positiu o negatiu
     :return: Llista que diu si cada un dels tweets es positiu = True o negatiu = False
@@ -176,8 +183,14 @@ def predict(taulaEx, valorationSet, priorPositive, priorNegative, totalPositius,
                 pPositive *= taulaEx[word][0]
                 pNegative *= taulaEx[word][1]
             else:
-                pPositive *= (smoothing / totalPositius + smoothing)
-                pNegative *= (smoothing / totalNegatius + smoothing)
+                """
+                clar aixo vol dir que dons totes les probabilitats que teniem se li ha de sumar 1 al denominador,
+                una possible solucio seria guardar totes les probabilitats a una llista multiplicarles pel denominador,
+                i dividirles pel denominador + 1 i al final fer la multiplicació per tots els elements de la llista.
+                Si no menteneu que es probable dema ho provo. Fin Xapa.
+                """
+                pPositive *= (smoothing / (nUniqueWords + smoothing))
+                pNegative *= (smoothing / (nUniqueWords + smoothing))
         if noCalculable:
             prediccions.append(3)
         else:
@@ -254,21 +267,21 @@ def main():
     train, val = splitData(df)
 
     # Fase de train
-    pDict, nDict = getTagDictionaries(train)
+    pDict, nDict, nUniqueWords = getTagDictionaries(train)
     print("\nDiccionari paraules positiveTag")
     print(pDict)
     print("\nDiccionari paraules negativeTag")
     print(nDict)
     print("\n")
 
-    taula, totalPositius, totalNegatius = taulaExtraccio(pDict, nDict)
+    taula, totalPositius, totalNegatius = taulaExtraccio(pDict, nDict, nUniqueWords)
     printTaulaDeManeraMesBonica(taula)
 
     priorPositive = totalPositius / (totalPositius + totalNegatius)
     priorNegatives = 1 - priorPositive
 
     # Prediccions
-    prediccions = predict(taula, val, priorPositive, priorNegatives, totalPositius, totalNegatius)
+    prediccions = predict(taula, val, priorPositive, priorNegatives, totalPositius, totalNegatius, nUniqueWords)
 
     tp, tn, fp, fn = validation(prediccions, val)
 
@@ -280,7 +293,8 @@ def main():
     print("Precision: ", pre * 100, "%")
 
 
-    print(priorPositive, priorNegatives)
+    #print(priorPositive, priorNegatives)
+    #print(nUniqueWords)
 
     # TODO: randomitzar el dataset cuan acabem de implementar tot aixo deixemlo aixi per debug purposes.
 

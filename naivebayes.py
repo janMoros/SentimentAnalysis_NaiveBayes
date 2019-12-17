@@ -1,10 +1,12 @@
 import pandas as pd
 import numpy as np
 import csv
+import nltk
 from nltk.stem import PorterStemmer
 from nltk.tokenize import word_tokenize
 from collections import Counter
 import matplotlib.pyplot as plt
+from spellchecker import SpellChecker
 
 # https://medium.com/datadriveninvestor/implementing-naive-bayes-for-sentiment-analysis-in-python-951fa8dcd928
 
@@ -59,6 +61,18 @@ class NaiveBayes:
 
 """
 
+stop_words = set(
+    ['ourselves', 'hers', 'between', 'yourself', 'but', 'again', 'there', 'about', 'once', 'during', 'out', 'very',
+     'having', 'with', 'they', 'own', 'an', 'be', 'some', 'for', 'do', 'its', 'yours', 'such', 'into', 'of', 'most',
+     'itself', 'other', 'off', 'is', 's', 'am', 'or', 'who', 'as', 'from', 'him', 'each', 'the', 'themselves', 'until',
+     'below', 'are', 'we', 'these', 'your', 'his', 'through', 'don', 'nor', 'me', 'were', 'her', 'more', 'himself',
+     'this', 'down', 'should', 'our', 'their', 'while', 'above', 'both', 'up', 'to', 'ours', 'had', 'she', 'all', 'no',
+     'when', 'at', 'any', 'before', 'them', 'same', 'and', 'been', 'have', 'in', 'will', 'on', 'does', 'yourselves',
+     'then', 'that', 'because', 'what', 'over', 'why', 'so', 'can', 'did', 'not', 'now', 'under', 'he', 'you',
+     'herself', 'has', 'just', 'where', 'too', 'only', 'myself', 'which', 'those', 'i', 'after', 'few', 'whom', 't',
+     'being', 'if', 'theirs', 'my', 'against', 'a', 'by', 'doing', 'it', 'how', 'further', 'was', 'here', 'than'])
+
+
 def accuracy(nTP, nTN, nFP, nFN):
     return float(nTP + nTN) / (nTP + nTN + nFP + nFN)
 
@@ -82,7 +96,7 @@ def readData(file, rows):
     return df
 
 
-def splitData(df, trainPercentage = 70):
+def splitData(df, trainPercentage=70):
     # Holdout val 30 train 70
     ntrain = (df.shape[0] * trainPercentage) // 100
     # nval = df.shape[0]-ntrain
@@ -100,24 +114,25 @@ def getTagDictionaries(train):
 
     totalWords = 0
 
-    #No poseu el .keys() al fer if word in pDict perque va tot lent
+    # No poseu el .keys() al fer if word in pDict perque va tot lent
     for tweet in pTrain['tweetText']:
         for word in str(tweet).split():
-            if word in pDict:
-                pDict[word] += 1
-            else:
-                pDict[word] = 1
-                totalWords += 1
+            if word not in stop_words and word[0] != '@':
+                if word in pDict:
+                    pDict[word] += 1
+                else:
+                    pDict[word] = 1
+                    totalWords += 1
 
     for tweet in nTrain['tweetText']:
         for word in str(tweet).split():
-            if word not in pDict:
-                totalWords += 1
-            if word in nDict:
-                nDict[word] += 1
-            else:
-                nDict[word] = 1
-
+            if word not in stop_words and word[0] != '@':
+                if word not in pDict:
+                    totalWords += 1
+                if word in nDict:
+                    nDict[word] += 1
+                else:
+                    nDict[word] = 1
 
     return pDict, nDict, totalWords
 
@@ -169,9 +184,12 @@ def printTaulaDeManeraMesBonica(taula):
     print("¦------------------------------------------------------------¦")
 
 
-#Per cuan cap paraula no estigui en el conjunt d'entrenament
+# Per cuan cap paraula no estigui en el conjunt d'entrenament
 default = False
-def predict(taulaEx, valorationSet, priorPositive, priorNegative, totalPositius, totalNegatius, nUniqueWords, smoothing = 1):
+
+
+def predict(taulaEx, valorationSet, priorPositive, priorNegative, totalPositius, totalNegatius, nUniqueWords,
+            smoothing=1):
     """
     Troba de cada tweet si es positiu o negatiu
     :return: Llista que diu si cada un dels tweets es positiu = True o negatiu = False
@@ -183,7 +201,7 @@ def predict(taulaEx, valorationSet, priorPositive, priorNegative, totalPositius,
         noCalculable = True
         for word in str(tweet).split():
             if word in taulaEx:
-                #Faig aixo per controlar si no tenim cap paraula del tweet al diccionari
+                # Faig aixo per controlar si no tenim cap paraula del tweet al diccionari
                 noCalculable = False
                 pPositive *= taulaEx[word][0]
                 pNegative *= taulaEx[word][1]
@@ -261,14 +279,16 @@ def validation(predictions, val):
 
     return TP, TN, FP, FN
 
+
 def nTweetsTest():
     file = 'data/shuffled_example.csv'
-    trainPercentageTest = [0.001, 0.01, 0.1, 1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 99]# [i*10 for i in range(1,10)]
+    trainPercentageTest = [0.001, 0.01, 0.1, 1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90,
+                           99]  # [i*10 for i in range(1,10)]
 
     print(trainPercentageTest)
     rows = 1578628
-    df = readData(file,rows)
-    smoothing = 0
+    df = readData(file, rows)
+    smoothing = 1
     acc = []
     rec = []
     pre = []
@@ -279,32 +299,70 @@ def nTweetsTest():
         taula, totalPositius, totalNegatius = taulaExtraccio(pDict, nDict, nUniqueWords, smoothing)
         priorPositive = totalPositius / (totalPositius + totalNegatius)
         priorNegatives = 1 - priorPositive
-        prediccions = predict(taula, val, priorPositive, priorNegatives, totalPositius, totalNegatius, nUniqueWords, smoothing)
+        prediccions = predict(taula, val, priorPositive, priorNegatives, totalPositius, totalNegatius, nUniqueWords,
+                              smoothing)
         tp, tn, fp, fn = validation(prediccions, val)
 
         acc.append(accuracy(tp, tn, fp, fn))
         rec.append(recall(tp, fn))
         pre.append(precision(tp, fp))
 
-    #plt.figure()
-    plt.plot(trainPercentageTest, acc, label = 'Accuracy')
-    plt.plot(trainPercentageTest, rec, label = 'Recall')
-    plt.plot(trainPercentageTest, pre, label = 'Precision')
+    # plt.figure()
+    plt.plot(trainPercentageTest, acc, label='Accuracy')
+    plt.plot(trainPercentageTest, rec, label='Recall')
+    plt.plot(trainPercentageTest, pre, label='Precision')
     plt.xlabel("Train Size")
     plt.ylabel("%")
     plt.legend()
     plt.show()
 
+
+def nRowsTest():
+    file = 'data/shuffled_example.csv'
+    nRows = [10, 100, 1000, 10000, 100000, 1000000, 1578628]  # [i*10 for i in range(1,10)]
+
+    # rows = 1578628
+
+    smoothing = 1
+    acc = []
+    rec = []
+    pre = []
+    for row in nRows:
+        df = readData(file, row)
+        train, val = splitData(df, 80)
+        pDict, nDict, nUniqueWords = getTagDictionaries(train)
+        taula, totalPositius, totalNegatius = taulaExtraccio(pDict, nDict, nUniqueWords, smoothing)
+        priorPositive = totalPositius / (totalPositius + totalNegatius)
+        priorNegatives = 1 - priorPositive
+        prediccions = predict(taula, val, priorPositive, priorNegatives, totalPositius, totalNegatius, nUniqueWords,
+                              smoothing)
+        tp, tn, fp, fn = validation(prediccions, val)
+
+        acc.append(accuracy(tp, tn, fp, fn))
+        rec.append(recall(tp, fn))
+        pre.append(precision(tp, fp))
+
+    # plt.figure()
+    plt.plot(nRows, acc, label='Accuracy')
+    plt.plot(nRows, rec, label='Recall')
+    plt.plot(nRows, pre, label='Precision')
+    plt.xlabel("n Rows")
+    plt.ylabel("%")
+    # plt.xscale("log")
+    plt.legend()
+    plt.show()
+
+
 def DicSizeTest():
     file = 'data/shuffled_example.csv'
     rows = 1578628
-    df = readData(file,rows)
-    smoothing = 0
+    df = readData(file, rows)
+    smoothing = 1
     acc = []
     rec = []
     pre = []
 
-    dictSizes = [10,50,100,1000, 10000,50000 ,100000,500000, 1000000]
+    dictSizes = [10, 50, 100, 1000, 10000, 50000, 100000, 500000, 1000000]
 
     for size in dictSizes:
         train, val = splitData(df, 80)
@@ -313,7 +371,8 @@ def DicSizeTest():
         reducedDict = {k: v for k, v in sorted(taula.items(), reverse=True, key=lambda item: item[1])[:size]}
         priorPositive = totalPositius / (totalPositius + totalNegatius)
         priorNegatives = 1 - priorPositive
-        prediccions = predict(reducedDict, val, priorPositive, priorNegatives, totalPositius, totalNegatius, nUniqueWords, smoothing)
+        prediccions = predict(reducedDict, val, priorPositive, priorNegatives, totalPositius, totalNegatius,
+                              nUniqueWords, smoothing)
         tp, tn, fp, fn = validation(prediccions, val)
 
         acc.append(accuracy(tp, tn, fp, fn))
@@ -321,13 +380,48 @@ def DicSizeTest():
         pre.append(precision(tp, fp))
 
     plt.figure()
-    plt.plot(dictSizes, acc, label = 'Accuracy')
-    plt.plot(dictSizes, rec, label = 'Recall')
-    plt.plot(dictSizes, pre, label = 'Precision')
+    plt.plot(dictSizes, acc, label='Accuracy')
+    plt.plot(dictSizes, rec, label='Recall')
+    plt.plot(dictSizes, pre, label='Precision')
     plt.xlabel("Dictionary size")
+    plt.xscale("log")
     plt.ylabel("%")
     plt.legend()
     plt.show()
+
+
+def laplaceTest():
+    file = 'data/shuffled_example.csv'
+    rows = 1578628
+    df = readData(file, rows)
+    smoothingVals = [1, 2, 3, 5, 8, 13, 21]  # ,100, 500,1000, 5000, 10000, 50000]
+    acc = []
+    rec = []
+    pre = []
+
+    for smoothing in smoothingVals:
+        train, val = splitData(df, 80)
+        pDict, nDict, nUniqueWords = getTagDictionaries(train)
+        taula, totalPositius, totalNegatius = taulaExtraccio(pDict, nDict, nUniqueWords, smoothing)
+        priorPositive = totalPositius / (totalPositius + totalNegatius)
+        priorNegatives = 1 - priorPositive
+        prediccions = predict(taula, val, priorPositive, priorNegatives, totalPositius, totalNegatius,
+                              nUniqueWords, smoothing)
+        tp, tn, fp, fn = validation(prediccions, val)
+
+        acc.append(accuracy(tp, tn, fp, fn))
+        rec.append(recall(tp, fn))
+        pre.append(precision(tp, fp))
+
+    plt.figure()
+    plt.plot(smoothingVals, acc, label='Accuracy')
+    plt.plot(smoothingVals, rec, label='Recall')
+    plt.plot(smoothingVals, pre, label='Precision')
+    plt.xlabel("smoothing value")
+    plt.ylabel("%")
+    plt.legend()
+    plt.show()
+
 
 def mainExe():
     file = 'data/shuffled_example.csv'
@@ -335,8 +429,8 @@ def mainExe():
     # estava molt ordenat
     rows = 1578628
     df = readData(file, rows)
-    train, val = splitData(df, 0.0001)
-    smoothing = 0
+    train, val = splitData(df)
+    smoothing = 1
     # Fase de train
     pDict, nDict, nUniqueWords = getTagDictionaries(train)
     print("\nDiccionari paraules positiveTag")
@@ -352,7 +446,8 @@ def mainExe():
     priorNegatives = 1 - priorPositive
 
     # Prediccions
-    prediccions = predict(taula, val, priorPositive, priorNegatives, totalPositius, totalNegatius, nUniqueWords, smoothing)
+    prediccions = predict(taula, val, priorPositive, priorNegatives, totalPositius, totalNegatius, nUniqueWords,
+                          smoothing)
 
     tp, tn, fp, fn = validation(prediccions, val)
 
@@ -366,18 +461,17 @@ def mainExe():
 
 def main():
     # nTweetsTest()
-    # mainExe()
-    DicSizeTest()
-
-
+    mainExe()
+    # DicSizeTest()
+    # nRowsTest()
+    # laplaceTest()
 
 
 if __name__ == '__main__':
     main()
 
-
-#print(priorPositive, priorNegatives)
-#print(nUniqueWords)
+# print(priorPositive, priorNegatives)
+# print(nUniqueWords)
 
 # TODO: randomitzar el dataset cuan acabem de implementar tot aixo deixemlo aixi per debug purposes.
 

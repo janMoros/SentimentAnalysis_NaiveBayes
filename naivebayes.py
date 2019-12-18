@@ -6,7 +6,7 @@ from nltk.stem import PorterStemmer
 from nltk.tokenize import word_tokenize
 from collections import Counter
 import matplotlib.pyplot as plt
-from spellchecker import SpellChecker
+#from spellchecker import SpellChecker
 
 # https://medium.com/datadriveninvestor/implementing-naive-bayes-for-sentiment-analysis-in-python-951fa8dcd928
 
@@ -394,7 +394,7 @@ def laplaceTest():
     file = 'data/shuffled_example.csv'
     rows = 1578628
     df = readData(file, rows)
-    smoothingVals = [1, 2, 3, 5, 8, 13, 21]  # ,100, 500,1000, 5000, 10000, 50000]
+    smoothingVals = [0.0001, 0.001, 0.005, 0.01, 0.1, 0.5, 1]#[1, 2, 3, 5, 8, 13, 21]  # ,100, 500,1000, 5000, 10000, 50000]
     acc = []
     rec = []
     pre = []
@@ -403,8 +403,10 @@ def laplaceTest():
         train, val = splitData(df, 80)
         pDict, nDict, nUniqueWords = getTagDictionaries(train)
         taula, totalPositius, totalNegatius = taulaExtraccio(pDict, nDict, nUniqueWords, smoothing)
-        priorPositive = totalPositius / (totalPositius + totalNegatius)
-        priorNegatives = 1 - priorPositive
+
+        priorPositive = (totalPositius + smoothing) / (totalPositius + totalNegatius + 2 * smoothing)  # 2 -> nombre de valors possibles de la classe
+        priorNegatives = (totalNegatius + smoothing) / (totalPositius + totalNegatius + 2 * smoothing)
+
         prediccions = predict(taula, val, priorPositive, priorNegatives, totalPositius, totalNegatius,
                               nUniqueWords, smoothing)
         tp, tn, fp, fn = validation(prediccions, val)
@@ -442,8 +444,9 @@ def mainExe():
     taula, totalPositius, totalNegatius = taulaExtraccio(pDict, nDict, nUniqueWords, smoothing)
     printTaulaDeManeraMesBonica(taula)
 
-    priorPositive = totalPositius / (totalPositius + totalNegatius)
-    priorNegatives = 1 - priorPositive
+    priorPositive = (totalPositius + smoothing) / (totalPositius + totalNegatius + 2*smoothing) # 2 -> nombre de valors possibles de la classe
+    priorNegatives = (totalNegatius + smoothing) / (totalPositius + totalNegatius + 2*smoothing)
+    #priorNegatives = 1 - priorPositive
 
     # Prediccions
     prediccions = predict(taula, val, priorPositive, priorNegatives, totalPositius, totalNegatius, nUniqueWords,
@@ -461,10 +464,10 @@ def mainExe():
 
 def main():
     # nTweetsTest()
-    mainExe()
+    # mainExe()
     # DicSizeTest()
     # nRowsTest()
-    # laplaceTest()
+    laplaceTest()
 
 
 if __name__ == '__main__':
